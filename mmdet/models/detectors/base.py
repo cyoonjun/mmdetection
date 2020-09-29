@@ -46,6 +46,13 @@ class BaseDetector(nn.Module, metaclass=ABCMeta):
                  and self.roi_head.mask_head is not None)
                 or (hasattr(self, 'mask_head') and self.mask_head is not None))
 
+    @property
+    def with_track(self):
+        """bool: whether the detector has a mask head"""
+        return ((hasattr(self.roi_head, 'track_head')
+                 and self.roi_head.track_head is not None)
+                or (hasattr(self, 'track_head') and self.track_head is not None))
+
     @abstractmethod
     def extract_feat(self, imgs):
         """Extract features from images."""

@@ -4,7 +4,8 @@ from .formating import (Collect, ImageToTensor, ToDataContainer, ToTensor,
                         Transpose, to_tensor)
 from .instaboost import InstaBoost
 from .loading import (LoadAnnotations, LoadImageFromFile,
-                      LoadMultiChannelImageFromFiles, LoadProposals)
+                      LoadMultiChannelImageFromFiles, LoadProposals,
+                      LoadVideoFromFiles)
 from .test_time_aug import MultiScaleFlipAug
 from .transforms import (Albu, Expand, MinIoURandomCrop, Normalize, Pad,
                          PhotoMetricDistortion, RandomCenterCropPad,
@@ -16,5 +17,5 @@ __all__ = [
     'LoadMultiChannelImageFromFiles', 'LoadProposals', 'MultiScaleFlipAug',
     'Resize', 'RandomFlip', 'Pad', 'RandomCrop', 'Normalize', 'SegRescale',
     'MinIoURandomCrop', 'Expand', 'PhotoMetricDistortion', 'Albu',
-    'InstaBoost', 'RandomCenterCropPad', 'AutoAugment'
+    'InstaBoost', 'RandomCenterCropPad', 'AutoAugment', 'LoadVideoFromFiles'
 ]

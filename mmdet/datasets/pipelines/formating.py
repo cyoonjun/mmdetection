@@ -144,8 +144,13 @@ class ToDataContainer(object):
     """
 
     def __init__(self,
-                 fields=(dict(key='img', stack=True), dict(key='gt_bboxes'),
-                         dict(key='gt_labels'))):
+                 fields=(dict(key='img', stack=True), 
+                         dict(key='gt_bboxes'),
+                         dict(key='gt_labels'), 
+                         dict(key='gt_pids'), 
+                         dict(key='ref_img', stack=True),
+                         dict(key='ref_bboxes')
+                         )):
         self.fields = fields
 
     def __call__(self, results):
@@ -198,7 +203,6 @@ class DefaultFormatBundle(object):
             dict: The result dict contains the data that is formatted with
                 default bundle.
         """
-
         if 'img' in results:
             img = results['img']
             # add default meta keys
@@ -216,6 +220,16 @@ class DefaultFormatBundle(object):
         if 'gt_semantic_seg' in results:
             results['gt_semantic_seg'] = DC(
                 to_tensor(results['gt_semantic_seg'][None, ...]), stack=True)
+        if 'gt_pids' in results:
+            results['gt_pids'] = DC(to_tensor(results['gt_pids']))
+        if 'ref_img' in results:
+            ref_img = results['ref_img']
+            if len(ref_img.shape) < 3:
+                ref_img = np.expand_dims(ref_img, -1)
+            ref_img = np.ascontiguousarray(ref_img.transpose(2, 0, 1))
+            results['ref_img'] = DC(to_tensor(ref_img), stack=True)
+        if 'ref_bboxes' in results:
+            results['ref_bboxes'] = DC(to_tensor(results['ref_bboxes']))
         return results
 
     def _add_default_meta_keys(self, results):
@@ -290,7 +304,7 @@ class Collect(object):
                  keys,
                  meta_keys=('filename', 'ori_filename', 'ori_shape',
                             'img_shape', 'pad_shape', 'scale_factor', 'flip',
-                            'flip_direction', 'img_norm_cfg')):
+                            'flip_direction', 'img_norm_cfg', 'frame_id')):
         self.keys = keys
         self.meta_keys = meta_keys
 
@@ -306,7 +320,6 @@ class Collect(object):
                 - keys in``self.keys``
                 - ``img_metas``
         """
-
         data = {}
         img_meta = {}
         for key in self.meta_keys:

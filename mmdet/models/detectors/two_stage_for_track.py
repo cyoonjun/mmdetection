@@ -7,7 +7,7 @@ from .base import BaseDetector
 
 
 @DETECTORS.register_module()
-class TwoStageDetector(BaseDetector):
+class TwoStageDetectorForTrack(BaseDetector):
     """Base class for two-stage detectors.
 
     Two-stage detectors typically consisting of a region proposal network and a
@@ -22,7 +22,7 @@ class TwoStageDetector(BaseDetector):
                  train_cfg=None,
                  test_cfg=None,
                  pretrained=None):
-        super(TwoStageDetector, self).__init__()
+        super(TwoStageDetectorForTrack, self).__init__()
         self.backbone = build_backbone(backbone)
 
         if neck is not None:
@@ -45,6 +45,10 @@ class TwoStageDetector(BaseDetector):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
 
+        # memory queue for testing
+        self.prev_bboxes = None
+        self.prev_roi_feats = None
+
         self.init_weights(pretrained=pretrained)
 
     @property
@@ -64,7 +68,7 @@ class TwoStageDetector(BaseDetector):
             pretrained (str, optional): Path to pre-trained weights.
                 Defaults to None.
         """
-        super(TwoStageDetector, self).init_weights(pretrained)
+        super(TwoStageDetectorForTrack, self).init_weights(pretrained)
         self.backbone.init_weights(pretrained=pretrained)
         if self.with_neck:
             if isinstance(self.neck, nn.Sequential):
@@ -110,6 +114,9 @@ class TwoStageDetector(BaseDetector):
                       gt_bboxes_ignore=None,
                       gt_masks=None,
                       proposals=None,
+                      ref_img=None,
+                      ref_bboxes=None,
+                      gt_pids=None,
                       **kwargs):
         """
         Args:
@@ -140,6 +147,7 @@ class TwoStageDetector(BaseDetector):
             dict[str, Tensor]: a dictionary of loss components
         """
         x = self.extract_feat(img)
+        ref_x = self.extract_feat(ref_img)
         losses = dict()
 
         # RPN forward and loss
@@ -157,12 +165,19 @@ class TwoStageDetector(BaseDetector):
         else:
             proposal_list = proposals
 
-        roi_losses = self.roi_head.forward_train(x, img_metas, proposal_list,
-                                                 gt_bboxes, gt_labels,
-                                                 gt_bboxes_ignore, gt_masks,
-                                                 **kwargs)
+        roi_losses = self.roi_head.forward_train(
+            x=x, 
+            img_metas=img_metas, 
+            proposal_list=proposal_list,
+            gt_bboxes=gt_bboxes, 
+            gt_labels=gt_labels,
+            gt_bboxes_ignore=gt_bboxes_ignore, 
+            gt_masks=gt_masks, 
+            ref_x=ref_x,
+            ref_bboxes=ref_bboxes,
+            gt_pids=gt_pids,
+            **kwargs)
         losses.update(roi_losses)
-
         return losses
 
     async def async_simple_test(self,
@@ -186,7 +201,6 @@ class TwoStageDetector(BaseDetector):
     def simple_test(self, img, img_metas, proposals=None, rescale=False):
         """Test without augmentation."""
         assert self.with_bbox, 'Bbox head must be implemented.'
-
         x = self.extract_feat(img)
 
         if proposals is None:

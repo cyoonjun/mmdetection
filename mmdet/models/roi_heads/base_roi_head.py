@@ -14,6 +14,7 @@ class BaseRoIHead(nn.Module, metaclass=ABCMeta):
                  mask_roi_extractor=None,
                  mask_head=None,
                  shared_head=None,
+                 track_head=None,
                  train_cfg=None,
                  test_cfg=None):
         super(BaseRoIHead, self).__init__()
@@ -27,6 +28,9 @@ class BaseRoIHead(nn.Module, metaclass=ABCMeta):
 
         if mask_head is not None:
             self.init_mask_head(mask_roi_extractor, mask_head)
+
+        if track_head is not None:
+            self.init_track_head(track_head)
 
         self.init_assigner_sampler()
 
@@ -44,6 +48,11 @@ class BaseRoIHead(nn.Module, metaclass=ABCMeta):
     def with_shared_head(self):
         """bool: whether the RoI head contains a `shared_head`"""
         return hasattr(self, 'shared_head') and self.shared_head is not None
+
+    @property
+    def with_track(self):
+        """bool: whether the RoI head contains a `track_head`"""
+        return hasattr(self, 'track_head') and self.track_head is not None
 
     @abstractmethod
     def init_weights(self, pretrained):
@@ -66,6 +75,11 @@ class BaseRoIHead(nn.Module, metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def init_track_head(self):
+        """Initialize ``track_head``"""
+        pass
+
+    @abstractmethod
     def init_assigner_sampler(self):
         """Initialize assigner and sampler."""
         pass
@@ -79,6 +93,7 @@ class BaseRoIHead(nn.Module, metaclass=ABCMeta):
                       gt_labels,
                       gt_bboxes_ignore=None,
                       gt_masks=None,
+                      gt_pids=None,
                       **kwargs):
         """Forward function during training."""
         pass

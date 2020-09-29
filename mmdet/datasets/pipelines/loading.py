@@ -120,7 +120,6 @@ class LoadMultiChannelImageFromFiles(object):
 
         if self.file_client is None:
             self.file_client = mmcv.FileClient(**self.file_client_args)
-
         if results['img_prefix'] is not None:
             filename = [
                 osp.join(results['img_prefix'], fname)
@@ -159,6 +158,99 @@ class LoadMultiChannelImageFromFiles(object):
                     f'file_client_args={self.file_client_args})')
         return repr_str
 
+@PIPELINES.register_module()
+class LoadVideoFromFiles(object):
+    """Load an Video from files.
+
+    Required keys are "img_prefix" and "img_info" (a dict that must contain the
+    key "filename"). Added or updated keys are "filename", "img", "img_shape",
+    "ori_shape" (same as `img_shape`), "pad_shape" (same as `img_shape`),
+    "scale_factor" (1.0) and "img_norm_cfg" (means=0 and stds=1).
+
+    Args:
+        to_float32 (bool): Whether to convert the loaded image to a float32
+            numpy array. If set to False, the loaded image is an uint8 array.
+            Defaults to False.
+        color_type (str): The flag argument for :func:`mmcv.imfrombytes`.
+            Defaults to 'color'.
+        file_client_args (dict): Arguments to instantiate a FileClient.
+            See :class:`mmcv.fileio.FileClient` for details.
+            Defaults to ``dict(backend='disk')``.
+    """
+
+    def __init__(self,
+                 to_float32=False,
+                 color_type='color',
+                 file_client_args=dict(backend='disk')):
+        self.to_float32 = to_float32
+        self.color_type = color_type
+        self.file_client_args = file_client_args.copy()
+        self.file_client = None
+
+    def __call__(self, results):
+        """Call functions to load image and get image meta information.
+
+        Args:
+            results (dict): Result dict from :obj:`mmdet.CustomDataset`.
+
+        Returns:
+            dict: The dict contains loaded image and meta information.
+        """
+
+        if self.file_client is None:
+            self.file_client = mmcv.FileClient(**self.file_client_args)
+        
+        frame_id = results['frame_id']
+        if results['ref_frame_id'] is not None:    
+            ref_frame_id = results['ref_frame_id']
+
+        # TODO: change here
+        if results['img_prefix'] is not None:
+            filename = osp.join(results['img_prefix'], 
+                                     results['vid_info']['filenames'][frame_id])
+            if results['ref_frame_id'] is not None:    
+                ref_filename = osp.join(results['img_prefix'], 
+                                        results['vid_info']['filenames'][ref_frame_id])
+        else:
+            filename = results['vid_info']['filenames'][frame_id]
+            if results['ref_frame_id'] is not None:    
+                ref_filename = results['vid_info']['filenames'][ref_frame_id]
+        img_bytes = self.file_client.get(filename)
+        img = mmcv.imfrombytes(img_bytes, flag=self.color_type)
+        if results['ref_frame_id'] is not None:
+            ref_img_bytes = self.file_client.get(ref_filename)
+            ref_img = mmcv.imfrombytes(ref_img_bytes, flag=self.color_type)
+        if self.to_float32:
+            img = img.astype(np.float32)
+            if results['ref_frame_id'] is not None:
+                ref_img = ref_img.astype(np.float32)
+
+
+        results['filename'] = filename
+        results['ori_filename'] = results['vid_info']['filenames'][frame_id]
+        if results['ref_frame_id'] is not None:
+            results['ref_filename'] = ref_filename
+            results['ref_ori_filename'] = results['vid_info']['filenames'][ref_frame_id]
+
+        results['img'] = img
+        if results['ref_frame_id'] is not None:
+            results['ref_img'] = ref_img
+
+        results['img_shape'] = img.shape
+        results['ori_shape'] = img.shape
+        results['img_fields'] = ['img']
+        if results['ref_frame_id'] is not None:
+            results['ref_img_fields'] = ['ref_img']
+
+        return results
+
+    def __repr__(self):
+        repr_str = (f'{self.__class__.__name__}('
+                    f'to_float32={self.to_float32}, '
+                    f"color_type='{self.color_type}', "
+                    f'file_client_args={self.file_client_args})')
+        return repr_str
+
 
 @PIPELINES.register_module()
 class LoadAnnotations(object):
@@ -170,6 +262,8 @@ class LoadAnnotations(object):
         with_label (bool): Whether to parse and load the label annotation.
             Default: True.
         with_mask (bool): Whether to parse and load the mask annotation.
+             Default: False.
+        with_track (bool): Whether to parse and load the track annotation.
              Default: False.
         with_seg (bool): Whether to parse and load the semantic segmentation
             annotation. Default: False.
@@ -184,12 +278,14 @@ class LoadAnnotations(object):
                  with_bbox=True,
                  with_label=True,
                  with_mask=False,
+                 with_track=False,
                  with_seg=False,
                  poly2mask=True,
                  file_client_args=dict(backend='disk')):
         self.with_bbox = with_bbox
         self.with_label = with_label
         self.with_mask = with_mask
+        self.with_track = with_track
         self.with_seg = with_seg
         self.poly2mask = poly2mask
         self.file_client_args = file_client_args.copy()
@@ -213,6 +309,11 @@ class LoadAnnotations(object):
             results['gt_bboxes_ignore'] = gt_bboxes_ignore.copy()
             results['bbox_fields'].append('gt_bboxes_ignore')
         results['bbox_fields'].append('gt_bboxes')
+        
+        if results['ref_ann_info'] is not None:
+            ref_ann_info = results['ref_ann_info']
+            results['ref_bboxes'] = ref_ann_info['bboxes'].copy()
+            results['bbox_fields'].append('ref_bboxes')
         return results
 
     def _load_labels(self, results):
@@ -283,19 +384,40 @@ class LoadAnnotations(object):
                 If ``self.poly2mask`` is set ``True``, `gt_mask` will contain
                 :obj:`PolygonMasks`. Otherwise, :obj:`BitmapMasks` is used.
         """
-
         h, w = results['img_info']['height'], results['img_info']['width']
         gt_masks = results['ann_info']['masks']
         if self.poly2mask:
             gt_masks = BitmapMasks(
                 [self._poly2mask(mask, h, w) for mask in gt_masks], h, w)
+        elif self.with_track:
+            gt_masks = BitmapMasks(
+                [gt_mask for gt_mask in gt_masks], h, w)
         else:
             gt_masks = PolygonMasks(
-                [self.process_polygons(polygons) for polygons in gt_masks], h,
-                w)
+                [self.process_polygons(polygons) for polygons in gt_masks], h, w)
         results['gt_masks'] = gt_masks
         results['mask_fields'].append('gt_masks')
         return results
+
+
+    def _load_tracks(self, results):
+        """Private function to load track annotations.
+
+        Args:
+            results (dict): Result dict from :obj:`mmdet.CustomDataset`.
+
+        Returns:
+            dict: The dict contains loaded mask annotations.
+                If ``self.poly2mask`` is set ``True``, `gt_mask` will contain
+                :obj:`PolygonMasks`. Otherwise, :obj:`BitmapMasks` is used.
+        """
+
+        ref_ids = results['ref_ann_info']['obj_ids']
+        gt_ids = results['ann_info']['obj_ids']
+        gt_pids = [ref_ids.index(i)+1 if i in ref_ids else 0 for i in gt_ids]
+        results['gt_pids'] = gt_pids
+        return results
+
 
     def _load_semantic_seg(self, results):
         """Private function to load semantic segmentation annotations.
@@ -328,7 +450,6 @@ class LoadAnnotations(object):
             dict: The dict contains loaded bounding box, label, mask and
                 semantic segmentation annotations.
         """
-
         if self.with_bbox:
             results = self._load_bboxes(results)
             if results is None:
@@ -339,6 +460,8 @@ class LoadAnnotations(object):
             results = self._load_masks(results)
         if self.with_seg:
             results = self._load_semantic_seg(results)
+        if self.with_track:
+            results = self._load_tracks(results)
         return results
 
     def __repr__(self):
@@ -346,6 +469,7 @@ class LoadAnnotations(object):
         repr_str += f'(with_bbox={self.with_bbox}, '
         repr_str += f'with_label={self.with_label}, '
         repr_str += f'with_mask={self.with_mask}, '
+        repr_str += f'with_track={self.with_track}, '
         repr_str += f'with_seg={self.with_seg})'
         repr_str += f'poly2mask={self.poly2mask})'
         repr_str += f'poly2mask={self.file_client_args})'

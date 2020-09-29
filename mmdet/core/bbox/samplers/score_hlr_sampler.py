@@ -87,7 +87,7 @@ class ScoreHLRSampler(BaseSampler):
 
     def _sample_pos(self, assign_result, num_expected, **kwargs):
         """Randomly sample some positive samples."""
-        pos_inds = torch.nonzero(assign_result.gt_inds > 0).flatten()
+        pos_inds = torch.nonzero(assign_result.gt_inds > 0, as_tuple=False).flatten()
         if pos_inds.numel() <= num_expected:
             return pos_inds
         else:
@@ -122,7 +122,7 @@ class ScoreHLRSampler(BaseSampler):
             feats (Tensor): Features come from FPN.
             img_meta (dict): Meta information dictionary.
         """
-        neg_inds = torch.nonzero(assign_result.gt_inds == 0).flatten()
+        neg_inds = torch.nonzero(assign_result.gt_inds == 0, as_tuple=False).flatten()
         num_neg = neg_inds.size(0)
         if num_neg == 0:
             return neg_inds, None

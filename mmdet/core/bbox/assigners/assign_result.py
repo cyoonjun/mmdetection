@@ -39,11 +39,12 @@ class AssignResult(util_mixins.NiceRepr):
                       labels.shape=(7,))>
     """
 
-    def __init__(self, num_gts, gt_inds, max_overlaps, labels=None):
+    def __init__(self, num_gts, gt_inds, max_overlaps, labels=None, pids=None):
         self.num_gts = num_gts
         self.gt_inds = gt_inds
         self.max_overlaps = max_overlaps
         self.labels = labels
+        self.pids = pids
         # Interface for possible user-defined properties
         self._extra_properties = {}
 
@@ -70,6 +71,7 @@ class AssignResult(util_mixins.NiceRepr):
             'gt_inds': self.gt_inds,
             'max_overlaps': self.max_overlaps,
             'labels': self.labels,
+            'pids': self.pids,
         }
         basic_info.update(self._extra_properties)
         return basic_info
@@ -91,6 +93,10 @@ class AssignResult(util_mixins.NiceRepr):
             parts.append(f'labels={self.labels!r}')
         else:
             parts.append(f'labels.shape={tuple(self.labels.shape)!r}')
+        if self.pids is None:
+            parts.append(f'pids={self.pids!r}')
+        else:
+            parts.append(f'pids.shape={tuple(self.pids.shape)!r}')
         return ', '.join(parts)
 
     @classmethod
@@ -123,6 +129,7 @@ class AssignResult(util_mixins.NiceRepr):
         p_ignore = kwargs.get('p_ignore', 0.3)
         p_assigned = kwargs.get('p_assigned', 0.7)
         p_use_label = kwargs.get('p_use_label', 0.5)
+        p_use_pid = kwargs.get('p_use_pid', 0.5)
         num_classes = kwargs.get('p_use_label', 3)
 
         if num_gts is None:
@@ -137,6 +144,10 @@ class AssignResult(util_mixins.NiceRepr):
                 labels = torch.zeros(num_preds, dtype=torch.int64)
             else:
                 labels = None
+            if p_use_pid is True or p_use_pid < rng.rand():
+                pids = torch.zeros(num_preds, dtype=torch.int64)
+            else:
+                pids = None
         else:
             import numpy as np
             # Create an overlap for each predicted box
@@ -184,10 +195,23 @@ class AssignResult(util_mixins.NiceRepr):
             else:
                 labels = None
 
-        self = cls(num_gts, gt_inds, max_overlaps, labels)
+            if p_use_pid is True or p_use_pid < rng.rand():
+                if num_classes == 0:
+                    pids = torch.zeros(num_preds, dtype=torch.int64)
+                else:
+                    pids = torch.from_numpy(
+                        # remind that we set FG pids to [0, num_class-1]
+                        # since mmdet v2.0
+                        # BG cat_id: num_class
+                        rng.randint(0, num_classes, size=num_preds))
+                    pids[~is_assigned] = 0
+            else:
+                pids = None
+
+        self = cls(num_gts, gt_inds, max_overlaps, labels, pids)
         return self
 
-    def add_gt_(self, gt_labels):
+    def add_gt_(self, gt_labels, gt_pids=None):
         """Add ground truth as assigned results.
 
         Args:
@@ -202,3 +226,5 @@ class AssignResult(util_mixins.NiceRepr):
 
         if self.labels is not None:
             self.labels = torch.cat([gt_labels, self.labels])
+        if self.pids is not None:
+            self.pids = torch.cat([gt_pids, self.pids])

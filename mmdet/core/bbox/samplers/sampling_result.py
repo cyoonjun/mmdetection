@@ -28,6 +28,7 @@ class SamplingResult(util_mixins.NiceRepr):
         self.neg_inds = neg_inds
         self.pos_bboxes = bboxes[pos_inds]
         self.neg_bboxes = bboxes[neg_inds]
+        
         self.pos_is_gt = gt_flags[pos_inds]
 
         self.num_gts = gt_bboxes.shape[0]
@@ -47,6 +48,11 @@ class SamplingResult(util_mixins.NiceRepr):
             self.pos_gt_labels = assign_result.labels[pos_inds]
         else:
             self.pos_gt_labels = None
+
+        if assign_result.pids is not None:
+            self.pos_gt_pids = assign_result.pids[pos_inds]
+        else:
+            self.pos_gt_pids = None
 
     @property
     def bboxes(self):
@@ -72,6 +78,7 @@ class SamplingResult(util_mixins.NiceRepr):
         data = self.info.copy()
         data['pos_bboxes'] = data.pop('pos_bboxes').shape
         data['neg_bboxes'] = data.pop('neg_bboxes').shape
+        data['pos_gt_bboxes'] = data.pop('pos_gt_bboxes').shape
         parts = [f"'{k}': {v!r}" for k, v in sorted(data.items())]
         body = '    ' + ',\n    '.join(parts)
         return '{\n' + body + '\n}'
@@ -87,6 +94,9 @@ class SamplingResult(util_mixins.NiceRepr):
             'pos_is_gt': self.pos_is_gt,
             'num_gts': self.num_gts,
             'pos_assigned_gt_inds': self.pos_assigned_gt_inds,
+            'pos_gt_pids': self.pos_gt_pids,
+            'pos_gt_bboxes': self.pos_gt_bboxes,
+            'pos_gt_labels': self.pos_gt_labels
         }
 
     @classmethod

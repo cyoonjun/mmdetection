@@ -18,10 +18,13 @@ from .retinanet import RetinaNet
 from .rpn import RPN
 from .single_stage import SingleStageDetector
 from .two_stage import TwoStageDetector
+from .two_stage_for_track import TwoStageDetectorForTrack
+from .mask_track_rcnn import MaskTrackRCNN
 
 __all__ = [
     'ATSS', 'BaseDetector', 'SingleStageDetector', 'TwoStageDetector', 'RPN',
     'FastRCNN', 'FasterRCNN', 'MaskRCNN', 'CascadeRCNN', 'HybridTaskCascade',
     'RetinaNet', 'FCOS', 'GridRCNN', 'MaskScoringRCNN', 'RepPointsDetector',
-    'FOVEA', 'FSAF', 'NASFCOS', 'PointRend', 'GFL'
+    'FOVEA', 'FSAF', 'NASFCOS', 'PointRend', 'GFL',
+    'TwoStageDetectorForTrack', 'MaskTrackRCNN'
 ]
