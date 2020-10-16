@@ -11,11 +11,13 @@ from .voc import VOCDataset
 from .wider_face import WIDERFaceDataset
 from .xml_style import XMLDataset
 from .ytvos import YTVOSDataset
+from .ytvos_prop import YTVOSPropDataset
 
 __all__ = [
     'CustomDataset', 'XMLDataset', 'CocoDataset', 'DeepFashionDataset',
     'VOCDataset', 'CityscapesDataset', 'LVISDataset', 'GroupSampler',
     'DistributedGroupSampler', 'DistributedSampler', 'build_dataloader',
     'ConcatDataset', 'RepeatDataset', 'ClassBalancedDataset',
-    'WIDERFaceDataset', 'DATASETS', 'PIPELINES', 'build_dataset', 'YTVOSDataset'
+    'WIDERFaceDataset', 'DATASETS', 'PIPELINES', 'build_dataset', 'YTVOSDataset',
+    'YTVOSPropDataset'
 ]

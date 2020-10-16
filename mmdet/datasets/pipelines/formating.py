@@ -304,9 +304,13 @@ class Collect(object):
                  keys,
                  meta_keys=('filename', 'ori_filename', 'ori_shape',
                             'img_shape', 'pad_shape', 'scale_factor', 'flip',
-                            'flip_direction', 'img_norm_cfg', 'frame_id')):
+                            'flip_direction', 'img_norm_cfg', 'frame_id'),
+                 clip_keys=None,
+                 clip_meta_keys=None):
         self.keys = keys
         self.meta_keys = meta_keys
+        self.clip_keys = clip_keys
+        self.clip_meta_keys = clip_meta_keys
 
     def __call__(self, results):
         """Call function to collect keys in results. The keys in ``meta_keys``
@@ -327,6 +331,16 @@ class Collect(object):
         data['img_metas'] = DC(img_meta, cpu_only=True)
         for key in self.keys:
             data[key] = results[key]
+        if self.clip_keys is not None:
+            for key in self.clip_keys:
+                if key in results.keys():
+                    data[key] = results[key]   
+        if self.clip_meta_keys is not None:
+            clip_img_meta = {}
+            for key in self.clip_meta_keys:
+                if key in results.keys():
+                    clip_img_meta[key] = results[key]
+                    data['clip_img_metas'] = DC(clip_img_meta, cpu_only=True)
         return data
 
     def __repr__(self):

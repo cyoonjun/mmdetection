@@ -203,6 +203,35 @@ class TwoStageDetectorForTrack(BaseDetector):
         assert self.with_bbox, 'Bbox head must be implemented.'
         x = self.extract_feat(img)
 
+        # get proposal_list
+        if proposals is None:
+            proposal_list = self.rpn_head.simple_test_rpn(x, img_metas)
+        else:
+            proposal_list = proposals
+
+        return self.roi_head.simple_test(
+            x, proposal_list, img_metas, rescale=rescale)
+
+    #TODO:
+    """
+    Test code for mask propagation
+    """
+    def simple_test_clip(
+        self, 
+        img, 
+        img_metas,
+        clip_imgs,
+        clip_img_metas, 
+        use_clip=True, 
+        proposals=None, 
+        rescale=False
+        ):
+
+        """Test without augmentation."""
+        assert self.with_bbox, 'Bbox head must be implemented.'
+        x = self.extract_feat(img)
+
+        # get proposal_list
         if proposals is None:
             proposal_list = self.rpn_head.simple_test_rpn(x, img_metas)
         else:

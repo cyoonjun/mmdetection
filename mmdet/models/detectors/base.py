@@ -93,6 +93,11 @@ class BaseDetector(nn.Module, metaclass=ABCMeta):
     def simple_test(self, img, img_metas, **kwargs):
         pass
 
+    #TODO:
+    @abstractmethod
+    def simple_test_clip(self, img, img_metas, clip_imgs, clip_img_metas, **kwargs):
+        pass
+
     @abstractmethod
     def aug_test(self, imgs, img_metas, **kwargs):
         """Test function with test time augmentation."""
@@ -140,7 +145,6 @@ class BaseDetector(nn.Module, metaclass=ABCMeta):
         for var, name in [(imgs, 'imgs'), (img_metas, 'img_metas')]:
             if not isinstance(var, list):
                 raise TypeError(f'{name} must be a list, but got {type(var)}')
-
         num_augs = len(imgs)
         if num_augs != len(img_metas):
             raise ValueError(f'num of augmentations ({len(imgs)}) '
@@ -157,6 +161,9 @@ class BaseDetector(nn.Module, metaclass=ABCMeta):
             # proposals.
             if 'proposals' in kwargs:
                 kwargs['proposals'] = kwargs['proposals'][0]
+            #TODO:
+            if 'use_clip' in kwargs:
+                return self.simple_test_clip(imgs[0], img_metas[0], **kwargs)
             return self.simple_test(imgs[0], img_metas[0], **kwargs)
         else:
             # TODO: support test augmentation for predefined proposals
